@@ -5,6 +5,8 @@ const express = require('express')
 const md5 = require('blueimp-md5')
 
 const pool = require('../models/db')
+const turf = require('@turf/turf')
+const { polygon } = require('@turf/turf')
 
 // 得到路由器对象
 const router = express.Router()
@@ -116,22 +118,89 @@ router.post('/age', (req, res) => {
   });
 })
 
-router.get('/getpolygon', (req, res) => {
+router.post('/getpolygon', (req, res) => {
   // const { name } = req.query
-  // console.log("name",name)
+  const points = [[114.07614815496311,22.558253845914187], [114.07449924442668,22.551049590720183],[114.0911532408435, 22.550034876665336],[114.09054864031386, 22.558608975523665],[114.07614815496311, 22.558253845914187]]
+  const {polygon} = req.body
+  
+  const polygon3 = 'POLYGON((114.07614815496311 22.558253845914187, \
+    114.07449924442668 22.551049590720183,\
+    114.0911532408435 22.550034876665336,\
+    114.09054864031386 22.558608975523665,\
+    114.07614815496311 22.558253845914187))'
+  console.log("polygon",polygon)
+  var polygon4 = turf.polygon([[[114.07614815496311,22.558253845914187], [114.07449924442668,22.551049590720183],[114.0911532408435, 22.550034876665336],[114.09054864031386, 22.558608975523665],[114.07614815496311, 22.558253845914187]]])
+  // console.log("po",polygon4)
+  array = 'POLYGON(('
+  turf.coordEach(polygon4, function (currentCoord, coordIndex, featureIndex, multiFeatureIndex, geometryIndex) {
+    //=currentCoord
+    //=coordIndex
+    //=featureIndex
+    //=multiFeatureIndex
+    //=geometryIndex
+    console.log("11",currentCoord)
+    array += currentCoord[0] + ' ' + currentCoord[1] + ','
+    // console.log("22",currentCoord[0])
+  });
+  array = array.substring(0,array.lastIndexOf(','))
+  array+='))'
+  // const polygon2 = 'POLYGON($points)`
+  // console.log(polygon2)
+  // console.log(height1,height2)
   pool.connect(function (err, client, done) {
     if (err) {
         return console.error(err);
     }
-    // 简单输出个 Hello World
-    client.query('select ST_AsText(geom) from demojz where height=$1', [20], function (err, result) {
+    // 简单输出个 Hello World select ST_AsText(geom) from demojz where height=$1 or height=$2
+    client.query('SELECT ST_AsGeoJson(geom)::jsonb,block_use FROM land1029 WHERE ST_Intersects(\
+      ST_GeomFromText($1, 0), geom)', [array], function (err, result) {
         done();// 释放连接（将其返回给连接池）
         if (err) {
             return console.error('查询出错', err);
         }
+        const geodata = result.rows[0]['st_asgeojson']['coordinates']
+        console.log("geodata",geodata)
+        const geojsondata = turf.polygon(geodata,{block_use:result.rows[0]['block_use']})
+        console.log("geojsondata",geojsondata)
         res.send(result.rows)
     });
   });
 })
+
+function TransToPolygon(){
+  var polygon4 = turf.polygon([[[114.07614815496311,22.558253845914187], [114.07449924442668,22.551049590720183],[114.0911532408435, 22.550034876665336],[114.09054864031386, 22.558608975523665],[114.07614815496311, 22.558253845914187]]])
+
+  console.log(polygon4)
+  const geodata = polygon4['geometry']['coordinates']
+  console.log(geodata)
+  console.log()
+  // var features = turf.featureCollection([
+  //   turf.point([26, 37], {"foo": "bar"}),
+  //   turf.point([36, 53], {"hello": "world"})
+  // ]);
+  
+  // turf.coordEach(features, function (currentCoord, coordIndex, featureIndex, multiFeatureIndex, geometryIndex) {
+  //   console.log(currentCoord)
+  //   //=coordIndex
+  //   //=featureIndex
+  //   //=multiFeatureIndex
+  //   //=geometryIndex
+  // });
+  array = 'POLYGON(('
+  turf.coordEach(polygon4, function (currentCoord, coordIndex, featureIndex, multiFeatureIndex, geometryIndex) {
+    //=currentCoord
+    //=coordIndex
+    //=featureIndex
+    //=multiFeatureIndex
+    //=geometryIndex
+    console.log("11",currentCoord)
+    array += currentCoord[0] + ' ' + currentCoord[1] + ','
+    // console.log("22",currentCoord[0])
+  });
+  array = array.substring(0,array.lastIndexOf(','))
+  array+='))'
+  console.log(array)
+}
+// TransToPolygon()
 
 module.exports = router
