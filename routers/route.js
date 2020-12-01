@@ -120,17 +120,13 @@ router.post('/age', (req, res) => {
 
 router.post('/getpolygon', (req, res) => {
   // const { name } = req.query
-  const points = [[114.07614815496311,22.558253845914187], [114.07449924442668,22.551049590720183],[114.0911532408435, 22.550034876665336],[114.09054864031386, 22.558608975523665],[114.07614815496311, 22.558253845914187]]
   const {polygon} = req.body
-  
   const polygon3 = 'POLYGON((114.07614815496311 22.558253845914187, \
     114.07449924442668 22.551049590720183,\
     114.0911532408435 22.550034876665336,\
     114.09054864031386 22.558608975523665,\
     114.07614815496311 22.558253845914187))'
   console.log("polygon",polygon)
-  var polygon4 = turf.polygon([[[114.07614815496311,22.558253845914187], [114.07449924442668,22.551049590720183],[114.0911532408435, 22.550034876665336],[114.09054864031386, 22.558608975523665],[114.07614815496311, 22.558253845914187]]])
-  // console.log("po",polygon4)
   array = 'POLYGON(('
   turf.coordEach(polygon4, function (currentCoord, coordIndex, featureIndex, multiFeatureIndex, geometryIndex) {
     //=currentCoord
@@ -159,7 +155,6 @@ router.post('/getpolygon', (req, res) => {
             return console.error('查询出错', err);
         }
         const geodata = result.rows[0]['st_asgeojson']['coordinates']
-        console.log("geodata",geodata)
         const geojsondata = turf.polygon(geodata,{block_use:result.rows[0]['block_use']})
         console.log("geojsondata",geojsondata)
         res.send(result.rows)
