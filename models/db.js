@@ -4,8 +4,8 @@ const { Pool } = require('pg')
 var config = {
     user: "postgres",
     host: 'localhost',
-    database: "postgis_30_sample",
-    password: "admin123",
+    database: "testdb",
+    password: "postgres",
     port: 5432,
 
     // 扩展属性

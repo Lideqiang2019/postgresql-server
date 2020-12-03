@@ -36,6 +36,6 @@ const fs = require('fs')
 //     }
 //   })
 // }
-app.listen('5000', () => {
-  console.log('服务器启动成功, 请访问: http://localhost:5000')
+app.listen('8080', () => {
+  console.log('服务器启动成功, 请访问: 10.129.2.157:8063')
 })
