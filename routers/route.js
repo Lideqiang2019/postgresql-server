@@ -157,41 +157,120 @@ router.post('/getpolygon', (req, res) => {
 })
 
 // 测试用/getpolygon1
-router.post('/getpolygon1', (req, res) => {
+router.post('/getpolygonarc', (req, res) => {
   // const { name } = req.query
-  // const {polygon} = req.body
-  var polygon = turf.polygon([[[114.07614815496311,22.558253845914187], [114.07449924442668,22.551049590720183],[114.0911532408435, 22.550034876665336],[114.09054864031386, 22.558608975523665],[114.07614815496311, 22.558253845914187]]])
-  console.log("polygon",polygon)
+  const {polygon} = req.body
+  // var polygon = turf.polygon([[[114.07614815496311, 22.558253845914187], [114.07449924442668, 22.551049590720183], [114.0911532408435, 22.550034876665336], [114.09054864031386, 22.558608975523665], [114.07614815496311, 22.558253845914187]]])
+  // console.log("polygon", polygon)
   array = 'POLYGON(('
   turf.coordEach(polygon, function (currentCoord, coordIndex, featureIndex, multiFeatureIndex, geometryIndex) {
     array += currentCoord[0] + ' ' + currentCoord[1] + ','
   });
-  array = array.substring(0,array.lastIndexOf(','))
-  array+='))'
+  array = array.substring(0, array.lastIndexOf(','))
+  array += '))'
   pool.connect(function (err, client, done) {
     if (err) {
-        res.send({code:1,msg:'数据库未响应'})
-        return console.error(err);
+      res.send({ code: 1, msg: '数据库未响应' })
+      return console.error(err);
 
     }
     // 简单输出个 Hello World select ST_AsText(geom) from demojz where height=$1 or height=$2
     client.query('SELECT ST_AsGeoJson(geom)::jsonb As geometry,block_use,block_name FROM land1029 WHERE ST_Intersects(\
       ST_GeomFromText($1, 0), geom)', [array], function (err, result) {
-        done();// 释放连接（将其返回给连接池）
-        if (err) {
-          res.send({code:1,msg:'查询错误'})
-            return console.error('查询出错', err);
-        }
+      done();// 释放连接（将其返回给连接池）
+      if (err) {
+        res.send({ code: 1, msg: '查询错误' })
+        return console.error('查询出错', err);
+      }
 
-        geojsonArr = result.rows.reduce((pre,val)=>{
-          pre.push(turf.polygon(val['geometry']['coordinates'],{block_use:val['block_use'],block_name:val['block_name']}))
-          return pre
-        },[])
-        
-        const geojsaonAll = turf.featureCollection(geojsonArr)
-        console.log("geojsondata",geojsaonAll)
-        res.send({code:0,data:geojsaonAll})
-    });
+      pool.connect(function (err, client, done) {
+        client.query('SELECT ST_AsGeoJson(geom)::jsonb As geometry,block_name,height,floor FROM arc1029 WHERE block_name in (SELECT block_name FROM land1029 WHERE ST_Intersects(\
+            ST_GeomFromText($1, 0), geom))', [array], (err, arc) => {
+          done();// 释放连接（将其返回给连接池
+
+          // 地块信息
+          geojsonArr = result.rows.reduce((pre, val) => {
+            pre.push(turf.polygon(val['geometry']['coordinates'], { block_use: val['block_use'], block_name: val['block_name'] }))
+            return pre
+          }, [])
+
+          // 建筑信息
+          geoArc = arc.rows.reduce((pre,val)=>{
+            pre.push(turf.multiPolygon(val['geometry']['coordinates'],{block_name:val['block_name'],height:val['height'],floor:val['floor']}))
+            return pre
+          },[])
+
+          // console.log("arc",geoArc)
+          
+          const geojsonLand = turf.featureCollection(geojsonArr)
+          const geojsonArc = turf.featureCollection(geoArc)
+          // console.log("geojsondata",geojsaonAll)
+          res.send({ code: 0, data: {'land':geojsonLand,'arc':geojsonArc} })
+          
+        })
+      })
+
+
+    })
+  });
+})
+
+// 测试用/getpolygon1
+router.post('/getpolygon1', (req, res) => {
+  // const { name } = req.query
+  // const {polygon} = req.body
+  var polygon = turf.polygon([[[114.07614815496311, 22.558253845914187], [114.07449924442668, 22.551049590720183], [114.0911532408435, 22.550034876665336], [114.09054864031386, 22.558608975523665], [114.07614815496311, 22.558253845914187]]])
+  console.log("polygon", polygon)
+  array = 'POLYGON(('
+  turf.coordEach(polygon, function (currentCoord, coordIndex, featureIndex, multiFeatureIndex, geometryIndex) {
+    array += currentCoord[0] + ' ' + currentCoord[1] + ','
+  });
+  array = array.substring(0, array.lastIndexOf(','))
+  array += '))'
+  pool.connect(function (err, client, done) {
+    if (err) {
+      res.send({ code: 1, msg: '数据库未响应' })
+      return console.error(err);
+
+    }
+    // 简单输出个 Hello World select ST_AsText(geom) from demojz where height=$1 or height=$2
+    client.query('SELECT ST_AsGeoJson(geom)::jsonb As geometry,block_use,block_name FROM land1029 WHERE ST_Intersects(\
+      ST_GeomFromText($1, 0), geom)', [array], function (err, result) {
+      done();// 释放连接（将其返回给连接池）
+      if (err) {
+        res.send({ code: 1, msg: '查询错误' })
+        return console.error('查询出错', err);
+      }
+
+      pool.connect(function (err, client, done) {
+        client.query('SELECT ST_AsGeoJson(geom)::jsonb As geometry,block_name,height FROM arc1029 WHERE block_name in (SELECT block_name FROM land1029 WHERE ST_Intersects(\
+            ST_GeomFromText($1, 0), geom))', [array], (err, arc) => {
+          done();// 释放连接（将其返回给连接池
+
+          // 地块信息
+          geojsonArr = result.rows.reduce((pre, val) => {
+            pre.push(turf.polygon(val['geometry']['coordinates'], { block_use: val['block_use'], block_name: val['block_name'] }))
+            return pre
+          }, [])
+
+          // 建筑信息
+          geoArc = arc.rows.reduce((pre,val)=>{
+            pre.push(turf.multiPolygon(val['geometry']['coordinates'],{block_name:val['block_name']}))
+            return pre
+          },[])
+
+          // console.log("arc",geoArc)
+          
+          const geojsonLand = turf.featureCollection(geojsonArr)
+          const geojsonArc = turf.featureCollection(geoArc)
+          // console.log("geojsondata",geojsaonAll)
+          res.send({ code: 0, data: {'land':geojsonLand,'arc':geojsonArc} })
+          
+        })
+      })
+
+
+    })
   });
 })
 
