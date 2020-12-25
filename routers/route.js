@@ -77,6 +77,7 @@ pool.connect(function (err, client, done) {
 //       })
 // })
 
+/*
 router.get('/test', (req, res) => {
   const { name } = req.query
   console.log("name",name)
@@ -115,6 +116,80 @@ router.post('/age', (req, res) => {
       })
     }
   ) 
+  });
+})
+*/
+router.get('/getarcinfo', (req, res) => {
+  const {polygon} = req.query
+  var arr = JSON.parse(polygon)
+  // var arr = [[114.07614815496311,22.558253845914187],[114.07449924442668,22.551049590720183],[114.0911532408435,22.550034876665336],[114.09054864031386,22.558608975523665],[114.07614815496311,22.558253845914187]]
+  var array = 'POLYGON((' 
+  arr.map((item,key)=>{
+    array += item[0] + ' ' + item[1] + ','
+  })
+  array = array.substring(0,array.lastIndexOf(','))
+  array+='))'
+  pool.connect(function (err, client, done) {
+    if (err) {
+        res.send({code:1,msg:'数据库未响应'})
+        return console.error(err);
+
+    }
+    // 简单输出个 Hello World select ST_AsText(geom) from demojz where height=$1 or height=$2
+    client.query('SELECT ST_AsGeoJson(geom)::jsonb As geometry,bd_id,floor FROM bd_dz_pick WHERE ST_Intersects(\
+      ST_GeomFromText($1, 0), geom)', [array], function (err, result) {
+        done();// 释放连接（将其返回给连接池）
+        if (err) {
+          res.send({code:1,msg:'查询错误'})
+            return console.error('查询出错', err);
+        }
+
+        geojsonArr = result.rows.reduce((pre,val)=>{
+          pre.push(turf.multiPolygon(val['geometry']['coordinates'],{bd_id:val['bd_id'],floor:val['floor']}))
+          return pre
+        },[])
+        
+        const geojsaonAll = turf.featureCollection(geojsonArr)
+        // console.log("geojsondata",geojsaonAll)
+        res.send(geojsaonAll)
+    });
+  });
+})
+router.post('/getarc', (req, res) => {
+  // const { name } = req.query
+   const {polygon} = req.body
+ // var polygon = turf.polygon([[[114.07614815496311,22.558253845914187], [114.07449924442668,22.551049590720183],[114.0911532408435, 22.550034876665336],[114.09054864031386, 22.558608975523665],[114.07614815496311, 22.558253845914187]]])
+  //console.log("polygon",polygon)
+  array = 'POLYGON(('
+  turf.coordEach(polygon, function (currentCoord, coordIndex, featureIndex, multiFeatureIndex, geometryIndex) {
+    array += currentCoord[0] + ' ' + currentCoord[1] + ','
+  });
+  array = array.substring(0,array.lastIndexOf(','))
+  array+='))'
+  pool.connect(function (err, client, done) {
+    if (err) {
+        res.send({code:1,msg:'数据库未响应'})
+        return console.error(err);
+
+    }
+    // 简单输出个 Hello World select ST_AsText(geom) from demojz where height=$1 or height=$2
+    client.query('SELECT ST_AsGeoJson(geom)::jsonb As geometry,bd_id,floor FROM bd_dz_pick WHERE ST_Intersects(\
+      ST_GeomFromText($1, 0), geom)', [array], function (err, result) {
+        done();// 释放连接（将其返回给连接池）
+        if (err) {
+          res.send({code:1,msg:'查询错误'})
+            return console.error('查询出错', err);
+        }
+
+        geojsonArr = result.rows.reduce((pre,val)=>{
+          pre.push(turf.multiPolygon(val['geometry']['coordinates'],{bd_id:val['bd_id'],floor:val['floor']}))
+          return pre
+        },[])
+        
+        const geojsaonAll = turf.featureCollection(geojsonArr)
+        console.log("geojsondata",geojsaonAll)
+        res.send({code:0,data:geojsaonAll})
+    });
   });
 })
 
@@ -231,7 +306,6 @@ router.post('/getpolygon1', (req, res) => {
     if (err) {
       res.send({ code: 1, msg: '数据库未响应' })
       return console.error(err);
-
     }
     // 简单输出个 Hello World select ST_AsText(geom) from demojz where height=$1 or height=$2
     client.query('SELECT ST_AsGeoJson(geom)::jsonb As geometry,block_use,block_name FROM land1029 WHERE ST_Intersects(\
@@ -274,6 +348,7 @@ router.post('/getpolygon1', (req, res) => {
   });
 })
 
+/*
 function TransToPolygon(){
   var polygon4 = turf.polygon([[[114.07614815496311,22.558253845914187], [114.07449924442668,22.551049590720183],[114.0911532408435, 22.550034876665336],[114.09054864031386, 22.558608975523665],[114.07614815496311, 22.558253845914187]]])
 
@@ -318,5 +393,5 @@ function TransToPolygon(){
   console.log(data)
 }
 // TransToPolygon()
-
+*/
 module.exports = router
