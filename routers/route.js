@@ -447,54 +447,70 @@ router.post('/getsimilarlandarc', (req, res) => {
         res.send({ code: 1, msg: '查询错误' })
         return console.error('查询出错', err);
       }
-      
       pool.connect(function (err, client, done) {
         if (err) {
           res.send({ code: 1, msg: '数据库未响应' })
           return console.error(err);
         }
-        console.log(selectedLand);
         const {block_use,block_area,far,density} = selectedLand.rows[0];
         let b_area_max = block_area*1.2;
         let b_area_min = block_area*0.8;
         let far_max = far*1.2,
-            far_min = far*0.8;
+              far_min = far*0.8;
         let density_min = density*0.8,
-            density_max = density*1.2;
+              density_max = density*1.2;
     
-        client.query('SELECT ST_AsGeoJson(geom)::jsonb As geometry,block_name,height,floor FROM arc1029 WHERE block_name in (select block_name from land1029 where block_use::text like $1 and\
-         (block_area>$2 and block_area<$3) and ($4<far and far<$5) and (density>$6 and density<$7))', [block_use,b_area_min,b_area_max,far_min,far_max,density_min,density_max], function (err, arc) {
+        client.query('select ST_AsGeoJson(geom)::jsonb As geometry,block_name,block_use from land1029 where block_use::text like $1 and\
+         (block_area>$2 and block_area<$3) and ($4<far and far<$5) and (density>$6 and density<$7)', [block_use,b_area_min,b_area_max,far_min,far_max,density_min,density_max], function (err, land) {
           done();// 释放连接（将其返回给连接池）
           if (err) {
             res.send({ code: 1, msg: '查询错误' })
             return console.error('查询出错', err);
           }
+  
+          pool.connect(function (err, client, done) {
+            if (err) {
+              res.send({ code: 1, msg: '数据库未响应' })
+              return console.error(err);
+            }
+            let blockNames = new Set();
+            land.rows.map((val)=>{
+                blockNames.add(val['block_name']);
+            })
+
+            blockNames = Array.from(blockNames);
+        
+            client.query('SELECT ST_AsGeoJson(geom)::jsonb As geometry,block_name,height,floor FROM arc1029 WHERE block_name in (select block_name from land1029 where block_use::text like $1 and\
+             (block_area>$2 and block_area<$3) and ($4<far and far<$5) and (density>$6 and density<$7))', [block_use,b_area_min,b_area_max,far_min,far_max,density_min,density_max], function (err, arc) {
+              done();// 释放连接（将其返回给连接池）
+              if (err) {
+                res.send({ code: 1, msg: '查询错误' })
+                return console.error('查询出错', err);
+              }
+        
+              // 地块信息
+              let geojsonArr = land.rows.reduce((pre, val) => {
+                pre.push(turf.polygon(val['geometry']['coordinates'], { block_use: val['block_use'], block_name: val['block_name'] }))
+                return pre
+              }, [])
     
-          // 地块信息
-          // let geojsonArr = selectedLand.rows.reduce((pre, val) => {
-          //   pre.push(turf.polygon(val['geometry']['coordinates'], { block_use: val['block_use'], block_name: val['block_name'], gid: val['gid'] }))
-          //   return pre
-          // }, [])
+              // 建筑信息
+              let geoArc = arc.rows.reduce((pre, val) => {
+                pre.push(turf.multiPolygon(val['geometry']['coordinates'], { block_name: val['block_name'], height: val['height'], floor: val['floor']}))
+                return pre
+              }, [])
 
-          // 建筑信息
-          let geoArc = arc.rows.reduce((pre, val) => {
-            pre.push(turf.multiPolygon(val['geometry']['coordinates'], { block_name: val['block_name'], height: val['height'], floor: val['floor']}))
-            return pre
-          }, [])
-
-          let blockNames = new Set();
-          arc.rows.map((val)=>{
-            console.log(val)
-            blockNames.add(val['block_name']);
-          })
-          // console.log("arc",geoArc)
-
-          // const geojsonLand = turf.featureCollection(geojsonArr)
-          const geojsonArc = turf.featureCollection(geoArc)
-          // console.log("geojsondata",geojsaonAll)
-          res.send({ code: 0, data: {'blocknames':Array.from(blockNames),'arc': geojsonArc } })
+    
+              const geojsonLand = turf.featureCollection(geojsonArr)
+              const geojsonArc = turf.featureCollection(geoArc)
+              // console.log("geojsondata",geojsaonAll)
+              // 'blocknames':Array.from(blockNames),
+              res.send({ code: 0, data: {'blocknames':Array.from(blockNames),'land':geojsonLand,'arc': geojsonArc } })
+            });
+          });
         });
       });
+      
     })
   });
 })
