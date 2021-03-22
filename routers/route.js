@@ -439,8 +439,7 @@ router.post('/getsimilarlandarc', (req, res) => {
       res.send({ code: 1, msg: '数据库未响应' })
       return console.error(err);
     }
-    // 简单输出个 Hello World select ST_AsText(geom) from demojz where height=$1 or height=$2
-    client.query('SELECT block_name,block_use,block_area,far,density FROM land1029 WHERE ST_Within(\
+    client.query('SELECT ST_AsGeoJson(geom)::jsonb As geometry,block_name,block_use,block_area,far,density FROM land1029 WHERE ST_Within(\
       ST_Point($1, $2), geom)', [lat,lon], function (err, selectedLand) {
       done();// 释放连接（将其返回给连接池）
       if (err) {
@@ -488,6 +487,10 @@ router.post('/getsimilarlandarc', (req, res) => {
                 return console.error('查询出错', err);
               }
         
+              let geojsonSelected = selectedLand.rows.reduce((pre, val) => {
+                pre.push(turf.polygon(val['geometry']['coordinates'], { block_use: val['block_use'], block_name: val['block_name'],far:val['far'],density:val['density'] ,block_area:val['block_area']}))
+                return pre
+              }, [])
               // 地块信息
               let geojsonArr = land.rows.reduce((pre, val) => {
                 pre.push(turf.polygon(val['geometry']['coordinates'], { block_use: val['block_use'], block_name: val['block_name'] }))
@@ -505,7 +508,7 @@ router.post('/getsimilarlandarc', (req, res) => {
               const geojsonArc = turf.featureCollection(geoArc)
               // console.log("geojsondata",geojsaonAll)
               // 'blocknames':Array.from(blockNames),
-              res.send({ code: 0, data: {'blocknames':Array.from(blockNames),'land':geojsonLand,'arc': geojsonArc } })
+              res.send({ code: 0, data: {'selectedLand':geojsonSelected,'blocknames':Array.from(blockNames),'land':geojsonLand,'arc': geojsonArc } })
             });
           });
         });
