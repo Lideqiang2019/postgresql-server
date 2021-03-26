@@ -431,9 +431,9 @@ router.get('/getpointsinfo', (req, res) => {
 // 查找相似地块和建筑数据->李德强
 router.post('/getsimilarlandarc', (req, res) => {
   // const { name } = req.query
-  // const { point } = req.body
-  var point = [114.09205049851923, 22.561405204336975];
-  let [lat,lon] = point;
+  const { point } = req.body
+  // var point = [114.09205049851923, 22.561405204336975];
+  let [lat,lon] = JSON.parse(point);
   pool.connect(function (err, client, done) {
     if (err) {
       res.send({ code: 1, msg: '数据库未响应' })
